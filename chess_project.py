@@ -13,8 +13,11 @@ def engines_pred(depth, poslist, cur_board):
 	global castle_white
 	
 	for i in range(depth): # loop for given depth to find final position
-		next_move = str(deep.bestmove()['move']) # engine's next best move
-		
+		try:
+			next_move = str(deep.bestmove()['move']) # engine's next best move
+		except:
+			best_move = 'Checkmate!'
+			break
 		if(tmp_board.turn and not(any(y==True for y in castle_white)) ): #if white's turn and has not castled yet, check if it is castle move
 			castle_white = find_castling_choice(tmp_board,chess.Move.from_uci(next_move))
 		
@@ -23,15 +26,18 @@ def engines_pred(depth, poslist, cur_board):
 
 		
 		if(i == 0):
-			print('Best move: ', next_move)
+			best_move =  next_move
 			
 		tmp_poslist.append(next_move)
 		next_move = tmp_board.san(chess.Move.from_uci(next_move))
 		tmp_board.push_san(next_move)
+		
+		if(tmp_board.is_checkmate() == True):
+			break
 		deep.setposition(tmp_poslist) #update engine's position
 		
 	#print(castle_white, castle_black)	
-	return(tmp_board)
+	return(tmp_board, best_move)
 	
 
 def centre_control_occupants(cur_board, color): # Returns number of central pawns/pieces of given color
@@ -363,9 +369,9 @@ def check_for_backwards_pawn(cur_board, color, backward_pawns): # a pawn is cons
 				if(cur_board.piece_at(chess.square(j, k)) != None and cur_board.piece_at(chess.square(j, k)).symbol() == pawn): # check neighbor pawn's rank
 					neighbors_rank.append(k) # list of all neighbors rank
 		neighbors_rank.sort() # sort all ranks and then compare with pawn's rank
-		if(color == 1 and neighbors_rank[0] > rank_index): # if all neighbors are ahead then it is backwards
+		if(len(neighbors_rank) > 0 and color == 1 and neighbors_rank[0] > rank_index): # if all neighbors are ahead then it is backwards
 			backward_pawn_confirmed.append(chess.square(i, rank_index)) # if it is backwards store its square
-		if(color != 1 and neighbors_rank[0] < rank_index): # if all neighbors are ahead then it is backwards
+		if(len(neighbors_rank) > 0 and color != 1 and neighbors_rank[0] < rank_index): # if all neighbors are ahead then it is backwards
 			backward_pawn_confirmed.append(chess.square(i, rank_index)) # if it is backwards store its square
 	
 	return(backward_pawn_confirmed)
@@ -486,13 +492,13 @@ def queen_compare(cur_board):
 	
 	if(white_queen_square == -1): white_queen_value = 0
 	if(black_queen_square == -1): black_queen_value = 0
-	
-	if(white_queen_checks):
-		return ([2.5/2.5, 0]) # white queen is better. 2.5 is th max value of a queen theoretically
-	if(black_queen_checks):
-		return ([0, 2.5/2.5]) # black queen is better
-	
 	attr1 = [white_queen_centralised, black_queen_centralised]
+	if(white_queen_checks):
+		return ([2.5/2.5, 0], attr1) # white queen is better. 2.5 is th max value of a queen theoretically
+	if(black_queen_checks):
+		return ([0, 2.5/2.5], attr1) # black queen is better
+	
+	
 	
 	return ([white_queen_value/2.5, black_queen_value/2.5], attr1)
 	
@@ -860,178 +866,157 @@ def pawns_difference(cur_board, fut_board):
 	return (res)
 	
 		
-				
-
-board = chess.Board()
-moves_so_far = [] # list of all moves until now
-
-while(board.is_checkmate() != True):# while nobody has won
-	
-	move = input("Please enter your move (FromTo): ")
-	next_move = board.san(chess.Move.from_uci(move)) # generate new move
-	moves_so_far.append(move) # append to the list of all moves
-	
-	board.push_san( next_move ) # make the move
-	print(board) 
-	print(moves_so_far)
-	################################ ENGINE PREDICTIONS #####################################
-	future_board = engines_pred(4,moves_so_far, board)
-	print (future_board)
-	################################ CENTER CONTROL #########################################
-	[pawns, pieces] = centre_control(future_board, 1)
-	#print('Pawns and pieces controling center: ', pawns, pieces)
-	################################ KING SAFETY ############################################
-	###[king_circle_white, white_king_square] = king_neighborhood_finder(future_board, 1)
-	###[king_circle_black, black_king_square] = king_neighborhood_finder(future_board, 2)
-	
-	###print(attacking_king_zone(future_board, king_circle_white, 1))
-	###print(attacking_king_zone(future_board, king_circle_black, 2))
-	print('Castling results in form [white, black], (kingside, queenside): ', castle_white, castle_black)
-	###print(king_pawn_shield(future_board, king_circle_white, white_king_square, 1))
-	#print('King safety objective: ', king_safety_objective(future_board, 2))
-	###################################### MATERIALS ########################################
-	#print('Materialistic difference White - Black: ', compare_material_values(future_board))
-	######################################## PAWNS ##########################################
-	[islands, passed_pawns, backward_pawns] = count_pawn_islands(future_board, 2)
-	passed_pawns_conf = check_for_passed_pawn(future_board, 2, passed_pawns)
-	#print('Pawn islands: ', islands)
-	#print('Confirmed passed pawns squares: ', passed_pawns_conf)
-	
-	backward_pawn_confirmed = check_for_backwards_pawn(future_board, 2, backward_pawns)
-	#print('Confirmed backward pawns squares: ', backward_pawn_confirmed)
-	
-	doubled_pawns = multi_pawn_file(future_board, 1, 2)
-	#print('Double pawns files are: ', doubled_pawns)
-	
-	[square_controlling_dif, length_of_dif] = blocking_pawn_finder(future_board, 1)
-	#print('Squares that would be controlled without pawns and the number of them: ', [square_controlling_dif, length_of_dif])
-	
-	################################# DEVELOPMENT ##########################################
-	# compare piece by piece the activity and development and conclude resutls
-	'''print('White and Black queen power: ', queen_compare(future_board))
-	print('White and Black rooks power: ', rook_compare(future_board))
-	[knight_power, outposts] = knight_compare(future_board)
-	print('White and Black knights power: ', knight_power)
-	print('White and Black knights outposts: ', outposts)
-	print('White and Black bishops power: ', bishop_compare(future_board))'''
-	############################# CHECK DIFFERENCES ########################################
-	[center_control_dif, [center_pawns_dif, center_pieces_dif]] = center_control_difference(board, future_board)
-	print('White and Black center control difference: ', center_control_dif)
-	print('White and Black center pawns difference: ', center_pawns_dif)
-	print('White and Black center pieces difference: ', center_pieces_dif)
-	
-	[king_safety_dif, [king_attacking_score_dif, king_pawn_struct_dif, king_free_square_dif]] = king_safety_difference(board, future_board)
-	print('White and Black kings safety difference: ', king_safety_dif)
-	print('White and Black kings attacking score difference: ', king_attacking_score_dif)
-	print('White and Black pawns structure in front of king difference: ', king_pawn_struct_dif)
-	print('White and Black kings free squares to move difference: ', king_free_square_dif)
-	
-	materialistic_power_dif = materials_difference(board, future_board) 
-	print('Difference(future - now) of the materialistic difference White - Black: ', materialistic_power_dif)
-	
-	[pawn_islands_dif, passed_pawns_dif, backward_pawns_dif, doubled_pawns_dif, pawns_blocking_dif, pawn_struct_power_dif] = pawns_difference(board, future_board)
-	print('White and Black pawn structure power difference: ', pawn_struct_power_dif)
-	print('White and Black pawn islands difference: ', pawn_islands_dif)
-	print('White and Black passed pawn difference: ', passed_pawns_dif)
-	print('White and Black backward pawn difference: ', backward_pawns_dif)
-	print('White and Black doubled pawn difference: ', doubled_pawns_dif)
-	print('White and Black pawns blocking pieces value difference(the more negative the better it is): ', pawns_blocking_dif)
 	
 	
-	dif_calc = lambda a, b: [i-j for i,j in zip(a,b)] # calculate elementwise difference of two lists
 	
-	[queen_power_now, queen_central_now] = queen_compare(board)
-	[queen_power, queen_central] = queen_compare(future_board)
-	queen_power_dif = dif_calc(queen_power, queen_power_now)
-	queen_central_dif = dif_calc(queen_central, queen_central_now)
-	print('White and Black queen power difference: ', queen_power_dif)
-	print('White and Black queen being on central square difference: ', queen_central_dif)
+def commentator(cur_board, moves_so_far):	
+	board = cur_board.copy()
+	result = ''
+	future_board, best_move = engines_pred(4,moves_so_far, board)
+	if(str(best_move) != 'Checkmate!'):# if nobody has won
 	
-	
-	[rook_power_now, rook_doubled_now, rook_open_files_now] = rook_compare(board)
-	[rook_power, rook_doubled, rook_open_files] = rook_compare(future_board)
-	rook_power_dif = dif_calc(rook_power, rook_power_now)
-	rook_doubled_dif = dif_calc(rook_doubled, rook_doubled_now)
-	rook_open_files_dif = dif_calc(rook_doubled, rook_doubled_now)
-	print('White and Black rooks power difference: ', rook_power_dif)
-	print('White and Black doubled rooks difference: ', rook_doubled_dif)
-	print('White and Black rooks control over open files difference: ', rook_open_files_dif)
-	
-	
-	[knight_power_now, outposts_now, knight_central_now, knight_almost_central_now] = knight_compare(board)
-	[knight_power, outposts, knight_central, knight_almost_central] = knight_compare(future_board)
-	knight_power_dif = dif_calc(knight_power,  knight_power_now)
-	knight_outpost_dif = dif_calc(outposts_now,  outposts)
-	knight_central_dif = dif_calc(knight_central, knight_central_now)
-	knight_almost_central_dif = dif_calc(knight_almost_central, knight_almost_central_now)
-	print('White and Black knights power difference: ', knight_power_dif)
-	print('White and Black knights outposts difference: ', knight_outpost_dif)
-	print('White and Black knights number of central knights difference: ', knight_central_dif)
-	print('White and Black knights number of almost central knights difference: ', knight_almost_central_dif)
-	
-	
-	bishop_power_dif = dif_calc(bishop_compare(future_board), bishop_compare(board))
-	print('White and Black bishops power difference: ', bishop_power_dif)
-	
-	############################# COMMENTATOR ################################################
-	print('Commentator says:')
-	who_plays = 1
-	if(not board.turn): # if turn is BLACK then previous WHITE played so comment for that side
-		who_plays = 0 
-	
-	if(materialistic_power_dif[1] == 0.25):
-		print('Win bishop over knight.', end = ' ')
 		
-	if(center_control_dif[who_plays] > 0):
-		print('Wanting to improve center control, and in future develop in center',center_pawns_dif[who_plays], 'pawns and', center_pieces_dif[who_plays], 'pieces.', end =' ' )
-		print()
+		################################ ENGINE PREDICTIONS #####################################
+		
+		result += 'Best move: ' + str(best_move) + '\n'
+		################################ CENTER CONTROL #########################################
+		[pawns, pieces] = centre_control(future_board, 1)
+		################################ KING SAFETY ############################################
+		result += ('Castling results in form [white, black], (kingside, queenside): ' + str(castle_white) + str(castle_black) + '\n')
+		###################################### MATERIALS ########################################
+		
+		######################################## PAWNS ##########################################
+		[islands, passed_pawns, backward_pawns] = count_pawn_islands(future_board, 2)
+		passed_pawns_conf = check_for_passed_pawn(future_board, 2, passed_pawns)
+		
+		backward_pawn_confirmed = check_for_backwards_pawn(future_board, 2, backward_pawns)
+		
+		doubled_pawns = multi_pawn_file(future_board, 1, 2)
+		
+		[square_controlling_dif, length_of_dif] = blocking_pawn_finder(future_board, 1)
+		
+		################################# DEVELOPMENT ##########################################
+		############################# CHECK DIFFERENCES ########################################
+		[center_control_dif, [center_pawns_dif, center_pieces_dif]] = center_control_difference(board, future_board)
+		result += ('White and Black center control difference: ' + str(center_control_dif) + '\n')
+		result += ('White and Black center pawns difference: ' + str(center_pawns_dif) + '\n')
+		result += ('White and Black center pieces difference: ' + str(center_pieces_dif) + '\n')
 	
-	if(king_safety_dif[who_plays] > 0):
- 		print('Wanting to improve kings safety by:', end=' ')
- 		if(king_attacking_score_dif[who_plays] < 0):
- 			print('avoid incoming attack and hide king,', end =' ')
- 		if(king_pawn_struct_dif[who_plays] > 0):
- 			print('strengthen kings pawn structure,', end = ' ')
- 		if(king_free_square_dif[who_plays] >0):
- 			print('create more free squares for the king', end = ' ')
- 		print('.')
- 			
-	if(pawn_struct_power_dif[who_plays] > 0):
- 		print('Wanting to improve pawn structure by:', end = ' ')
- 		if(pawn_islands_dif[who_plays] < 0):
- 			print('connecting pawn islands,', end = ' ')
- 		if(passed_pawns_dif[who_plays] > 0):
- 			print('creating passed pawn,', end = ' ')
- 		if(backward_pawns_dif[who_plays] < 0):
- 			print('reducing backward weaknesses,', end = ' ')
- 		if(doubled_pawns_dif[who_plays] < 0):
- 			print('undouble pawns,', end = ' ')
- 		if(pawns_blocking_dif[who_plays] < 0):
- 			print('less blocking pieces with pawns', end = ' ')
- 		print('.')	
-	 			
-	dev_maxer = max(queen_power_dif[who_plays], rook_power_dif[who_plays], knight_power_dif[who_plays], bishop_power_dif[who_plays]) # find main piece that is going to be developed in future
-	if(dev_maxer == queen_power_dif[who_plays]):
- 		print('Queen is going to be developed/improved', end = ' ')
- 		if(queen_central_dif[who_plays] > 0):
- 			print('in central square', end = ' ')
-	if(dev_maxer == rook_power_dif[who_plays]):
- 		print('Rook is going to be developed/improved', end = ' ')
- 		if(rook_doubled_dif[who_plays] > 0):
- 			print('with doubled rooks', end = ' ')
- 		if(rook_open_files_dif[who_plays] > 0):
- 			print('with rooks occupying open file', end = ' ')	
-	if(dev_maxer == knight_power_dif[who_plays]):
- 		print('Knight is going to be developed/improved', end = ' ')
- 		if(knight_outpost_dif[who_plays] > 0):
- 			print('in an outpost (Great advantage)', end = ' ')
- 		if(knight_central_dif[who_plays] > 0):
- 			print('on a central square', end = ' ')
- 		if(knight_almost_central_dif[who_plays] > 0):
- 			print('on an almost central square', end = ' ')
-	if(dev_maxer == bishop_power_dif[who_plays]):
- 		print('Bishop is going to be developed on a better square/diagonal', end = '')
-	print('.')
-	 			
-	# Commented out with [###] means no need at first place. Commented out with [#] are parameters if we need to display them for presentation
+		[king_safety_dif, [king_attacking_score_dif, king_pawn_struct_dif, king_free_square_dif]] = king_safety_difference(board, future_board)
+		result += ('White and Black kings safety difference: ' + str(king_safety_dif) + '\n')
+		result += ('White and Black kings attacking score difference: '+ str(king_attacking_score_dif) + '\n')
+		result += ('White and Black pawns structure in front of king difference: ' + str(king_pawn_struct_dif) + '\n')
+		result += ('White and Black kings free squares to move difference: ' + str(king_free_square_dif) + '\n')
 	
+		materialistic_power_dif = materials_difference(board, future_board) 
+		result += ('Difference(future - now) of the materialistic difference White - Black: '+ str(materialistic_power_dif) + '\n')
+	
+		[pawn_islands_dif, passed_pawns_dif, backward_pawns_dif, doubled_pawns_dif, pawns_blocking_dif, pawn_struct_power_dif] = pawns_difference(board, future_board)
+		result+=('White and Black pawn structure power difference: ' + str(pawn_struct_power_dif) + '\n')
+		result+=('White and Black pawn islands difference: ' + str(pawn_islands_dif) + '\n')
+		result+=('White and Black passed pawn difference: ' + str(passed_pawns_dif) + '\n')
+		result+=('White and Black backward pawn difference: ' + str(backward_pawns_dif) + '\n')
+		result+=('White and Black doubled pawn difference: ' + str(doubled_pawns_dif) + '\n')
+		result+=('White and Black pawns blocking pieces value difference(the more negative the better it is): ' + str(pawns_blocking_dif) + '\n')
+	
+	
+		dif_calc = lambda a, b: [i-j for i,j in zip(a,b)] # calculate elementwise difference of two lists
+	
+		[queen_power_now, queen_central_now] = queen_compare(board)
+		[queen_power, queen_central] = queen_compare(future_board)
+		queen_power_dif = dif_calc(queen_power, queen_power_now)
+		queen_central_dif = dif_calc(queen_central, queen_central_now)
+		result+=('White and Black queen power difference: ' + str(queen_power_dif) + '\n')
+		result+=('White and Black queen being on central square difference: ' + str(queen_central_dif) + '\n')
+	
+	
+		[rook_power_now, rook_doubled_now, rook_open_files_now] = rook_compare(board)
+		[rook_power, rook_doubled, rook_open_files] = rook_compare(future_board)
+		rook_power_dif = dif_calc(rook_power, rook_power_now)
+		rook_doubled_dif = dif_calc(rook_doubled, rook_doubled_now)
+		rook_open_files_dif = dif_calc(rook_doubled, rook_doubled_now)
+		result+=('White and Black rooks power difference: ' + str(rook_power_dif) + '\n')
+		result+=('White and Black doubled rooks difference: ' + str(rook_doubled_dif) + '\n')
+		result+=('White and Black rooks control over open files difference: ' + str(rook_open_files_dif) + '\n')
+	
+	
+		[knight_power_now, outposts_now, knight_central_now, knight_almost_central_now] = knight_compare(board)
+		[knight_power, outposts, knight_central, knight_almost_central] = knight_compare(future_board)
+		knight_power_dif = dif_calc(knight_power,  knight_power_now)
+		knight_outpost_dif = dif_calc(outposts_now,  outposts)
+		knight_central_dif = dif_calc(knight_central, knight_central_now)
+		knight_almost_central_dif = dif_calc(knight_almost_central, knight_almost_central_now)
+		result+=('White and Black knights power difference: ' + str(knight_power_dif) + '\n')
+		result+=('White and Black knights outposts difference: ' + str(knight_outpost_dif) + '\n')
+		result+=('White and Black knights number of central knights difference: ' + str(knight_central_dif) + '\n')
+		result+=('White and Black knights number of almost central knights difference: ' + str(knight_almost_central_dif) + '\n')
+	
+	
+		bishop_power_dif = dif_calc(bishop_compare(future_board), bishop_compare(board))
+		result+=('White and Black bishops power difference: ' + str(bishop_power_dif) + '\n')
+	
+		############################# COMMENTATOR ################################################
+		result+=('Commentator says:' + '\n')
+		who_plays = 1
+		if(not board.turn): # if turn is BLACK then previous WHITE played so comment for that side
+			who_plays = 0 
+	
+		if(materialistic_power_dif[1] == 0.25):
+			result+=('Win bishop over knight.')
+		
+		if(center_control_dif[who_plays] > 0):
+			result+=('Wanting to improve center control, and in future develop in center' + str(center_pawns_dif[who_plays]) + 'pawns and' + str(center_pieces_dif[who_plays]) + 'pieces.' + '\n')
+			
+		if(king_safety_dif[who_plays] > 0):
+	 		result+=('Wanting to improve kings safety by:')
+	 		if(king_attacking_score_dif[who_plays] < 0):
+	 			result+=('avoid incoming attack and hide king,')
+	 		if(king_pawn_struct_dif[who_plays] > 0):
+	 			result+=('strengthen kings pawn structure,')
+	 		if(king_free_square_dif[who_plays] >0):
+	 			result+=('create more free squares for the king')
+	 		result+='.'
+	 			
+		if(pawn_struct_power_dif[who_plays] > 0):
+	 		result+=('Wanting to improve pawn structure by:')
+	 		if(pawn_islands_dif[who_plays] < 0):
+	 			result+=('connecting pawn islands,')
+	 		if(passed_pawns_dif[who_plays] > 0):
+	 			result+=('creating passed pawn,')
+	 		if(backward_pawns_dif[who_plays] < 0):
+	 			result+=('reducing backward weaknesses,')
+	 		if(doubled_pawns_dif[who_plays] < 0):
+	 			result+=('undouble pawns,')
+	 		if(pawns_blocking_dif[who_plays] < 0):
+	 			result+=('less blocking pieces with pawns')
+	 		result+=('.')	
+		 			
+		dev_maxer = max(queen_power_dif[who_plays], rook_power_dif[who_plays], knight_power_dif[who_plays], bishop_power_dif[who_plays]) # find main piece that is going to be developed in future
+		if(dev_maxer == queen_power_dif[who_plays]):
+	 		result+=('Queen is going to be developed/improved')
+	 		if(queen_central_dif[who_plays] > 0):
+	 			result+=('in central square')
+		if(dev_maxer == rook_power_dif[who_plays]):
+	 		result+=('Rook is going to be developed/improved')
+	 		if(rook_doubled_dif[who_plays] > 0):
+	 			result+=('with doubled rooks')
+	 		if(rook_open_files_dif[who_plays] > 0):
+	 			result+=('with rooks occupying open file')	
+		if(dev_maxer == knight_power_dif[who_plays]):
+	 		result+=('Knight is going to be developed/improved')
+	 		if(knight_outpost_dif[who_plays] > 0):
+	 			result+=('in an outpost (Great advantage)')
+	 		if(knight_central_dif[who_plays] > 0):
+	 			result+=('on a central square')
+	 		if(knight_almost_central_dif[who_plays] > 0):
+	 			result+=('on an almost central square')
+		if(dev_maxer == bishop_power_dif[who_plays]):
+	 		result+=('Bishop is going to be developed on a better square/diagonal')
+		result+=('.')	
+	
+	else:
+		result = 'Checkmate!'	
+	return(result)
+	
+	
+				
