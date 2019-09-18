@@ -8,7 +8,7 @@ import chess_project
 
 button_names = ('close', 'cookbook', 'cpu', 'github', 'pysimplegui', 'run', 'storage', 'timer')
 
-CHESS_PATH = '/home/jim/Desktop/Chess/'        # path to the chess pieces
+CHESS_PATH = '/home/jim/chess_commentator/images'        # path to the chess pieces
 
 BLANK = 0               # piece names
 PAWNB = 1
