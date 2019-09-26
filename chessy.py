@@ -146,8 +146,24 @@ def PlayGame():
           move = move_from + move_to
           
           all_moves.append(str(move))
+          if (cur_board.is_kingside_castling(chess.Move.from_uci(str(move)))):
+          	if (cur_board.turn):
+          		board[7][7] = BLANK # make the castle
+          		board[7][5] = ROOKW
+          	else:
+          		board[0][7] = BLANK
+          		board[0][5] = ROOKB 
+          		
+          if (cur_board.is_queenside_castling(chess.Move.from_uci(str(move)))):
+          	if (cur_board.turn):
+          		board[7][0] = BLANK
+          		board[7][3] = ROOKW
+          	else:
+          		board[0][0] = BLANK
+          		board[0][3] = ROOKB          	
+          
+          
           cur_board.push_san(cur_board.san(chess.Move.from_uci(str(move))))
-                    	
           	
           moves1 = ( tmp_board.variation_san([chess.Move.from_uci(m) for m in all_moves]) )
           for jj in range(len(moves1)):

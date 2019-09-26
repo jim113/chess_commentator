@@ -108,7 +108,7 @@ def commentator(cur_board, moves_so_far):
 			result+=('Win bishop over knight.')
 		
 		if(center_control_dif[who_plays] > 0):
-			result+=('Wanting to improve center control, and in future develop in center' + str(center_pawns_dif[who_plays]) + 'pawns and' + str(center_pieces_dif[who_plays]) + 'pieces.' + '\n')
+			result+=('Wanting to improve center control, and in future develop in center ' + str(center_pawns_dif[who_plays]) + ' pawns and ' + str(center_pieces_dif[who_plays]) + ' pieces.' + '\n')
 			
 		if(king_safety_dif[who_plays] > 0):
 	 		result+=('Wanting to improve kings safety by:')
